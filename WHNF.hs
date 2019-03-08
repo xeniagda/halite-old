@@ -1,50 +1,12 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 import System.IO.Unsafe
+import qualified Data.Text as T
 
-data Code
-    = CBottom
-    | CVar String
-    | CToken String
-    | CLet String Code Code
-    | CLambda String Code
-    | CCall Code Code
-    deriving (Show)
-
-cpprint :: Code -> String
-cpprint code =
-    case code of
-        CBottom -> "!"
-        CVar x -> x
-        CToken x -> "'" ++ x ++ "'"
-        CLet v val body -> "(" ++ v ++ " = " ++ cpprint val ++ " in " ++ cpprint body ++ ")"
-        CLambda v body -> "(\\" ++ v ++ ". " ++ cpprint body ++ ")"
-        CCall a b -> "(" ++ cpprint a ++ " " ++ cpprint b ++ ")"
-
-letm :: [(String, Code)] -> Code -> Code
-letm [] x = x
-letm ((var, val):rest) code = CLet var val $ letm rest code
-
-data Value
-    = VThunk Code
-    | VRef Int
-    | VBottom
-    | VVar String
-    | VToken String
-    | VLet String Value Value
-    | VLambda String Value
-    | VCall Value Value
-    deriving (Show)
-
-vpprint :: Value -> String
-vpprint code =
-    case code of
-        VThunk c -> "[" ++ cpprint c ++ "]"
-        VBottom -> "!"
-        VVar x -> x
-        VRef i -> "#" ++ show i
-        VToken x -> "'" ++ x ++ "'"
-        VLet v val body -> "(" ++ v ++ " = " ++ vpprint val ++ " in " ++ vpprint body ++ ")"
-        VLambda v body -> "(\\" ++ v ++ ". " ++ vpprint body ++ ")"
-        VCall a b -> "(" ++ vpprint a ++ " " ++ vpprint b ++ ")"
+import Code
+import Value
+import Parse
+import Parser
 
 
 type Memory = [Value]
@@ -61,16 +23,6 @@ getMem mem at =
 update :: Memory -> Int -> Value -> Memory
 update mem at val =
     (take at mem) ++ [val] ++ (drop (at + 1) mem)
-
-intoExpr :: Code -> Value
-intoExpr code =
-    case code of
-        CBottom     -> VBottom
-        CVar x      -> VVar x
-        CToken x    -> VToken x
-        CLet x y z  -> VLet x (VThunk y) (VThunk z)
-        CLambda x y -> VLambda x (VThunk y)
-        CCall x y   -> VCall (VThunk x) (VThunk y)
 
 passVar :: String -> Value -> Value -> Value
 passVar vName vVal value =
@@ -127,11 +79,12 @@ run code = do
 
 main :: IO ()
 main = do
-    let tup = CLambda "b" (CCall (CCall (CVar "b") (CToken "fst")) (CVar "tup"))
-        tup' = CLet "tup" tup (CVar "tup")
-        true = CLambda "x" (CLambda "y" (CVar "x"))
-        false = CLambda "x" (CLambda "y" (CVar "y"))
 
-    run $ CCall tup' true
-    run $ CCall tup' false
-    run $ CCall (CCall tup' false) true
+    let inp = "let tup = \\ b. b 'fst' 'snd' in tup (\\a. \\b. a)"
+
+    let (parsed, len) = doParse parseCode inp 0
+    if len == T.length inp
+        then case parsed of
+            Right code -> run code
+            Left err -> putStrLn $ show err
+        else putStrLn "Did not parse all"
