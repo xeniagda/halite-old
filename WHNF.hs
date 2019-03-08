@@ -9,6 +9,16 @@ data Code
     | CCall Code Code
     deriving (Show)
 
+cpprint :: Code -> String
+cpprint code =
+    case code of
+        CBottom -> "!"
+        CVar x -> x
+        CToken x -> "'" ++ x ++ "'"
+        CLet v val body -> "(" ++ v ++ " = " ++ cpprint val ++ " in " ++ cpprint body ++ ")"
+        CLambda v body -> "(\\" ++ v ++ ". " ++ cpprint body ++ ")"
+        CCall a b -> "(" ++ cpprint a ++ " " ++ cpprint b ++ ")"
+
 letm :: [(String, Code)] -> Code -> Code
 letm [] x = x
 letm ((var, val):rest) code = CLet var val $ letm rest code
@@ -23,6 +33,19 @@ data Value
     | VLambda String Value
     | VCall Value Value
     deriving (Show)
+
+vpprint :: Value -> String
+vpprint code =
+    case code of
+        VThunk c -> "[" ++ cpprint c ++ "]"
+        VBottom -> "!"
+        VVar x -> x
+        VRef i -> "#" ++ show i
+        VToken x -> "'" ++ x ++ "'"
+        VLet v val body -> "(" ++ v ++ " = " ++ vpprint val ++ " in " ++ vpprint body ++ ")"
+        VLambda v body -> "(\\" ++ v ++ ". " ++ vpprint body ++ ")"
+        VCall a b -> "(" ++ vpprint a ++ " " ++ vpprint b ++ ")"
+
 
 type Memory = [Value]
 
@@ -92,3 +115,23 @@ whnf mem val =
                 Just x -> whnf mem x
                 Nothing -> (mem, val)
         a -> (mem, a)
+
+run :: Code -> IO ()
+run code = do
+    putStrLn $ "Evaluating: " ++ cpprint code
+    let v = intoExpr code
+        (mem, whnfed) = whnf [] v
+
+    mapM_ (\(i, v) -> putStrLn $ (show i ++ ": " ++ vpprint v)) $ zip [0..] mem
+    putStrLn $ "Whnfed: " ++ vpprint whnfed
+
+main :: IO ()
+main = do
+    let tup = CLambda "b" (CCall (CCall (CVar "b") (CToken "fst")) (CVar "tup"))
+        tup' = CLet "tup" tup (CVar "tup")
+        true = CLambda "x" (CLambda "y" (CVar "x"))
+        false = CLambda "x" (CLambda "y" (CVar "y"))
+
+    run $ CCall tup' true
+    run $ CCall tup' false
+    run $ CCall (CCall tup' false) true
