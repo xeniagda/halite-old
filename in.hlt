@@ -1,5 +1,34 @@
-let makelst = \num b. b num (makelst ('succ' num));
-    lst = makelst 'zero';
+let succ = \n f x. f (n f x);
+    zero = \f x. x;
+    one = succ zero;
+    two = succ one;
+    three = succ two;
+    four = succ three;
+    five = succ four;
+
+    sum = \n m f x. n f (m f x);
+    prod = \n m f x. n (m f) x;
+    pow = \n m. m n;
+
+    evalN = \n. n 'succ' 'zero';
+
+    squaresAfter =
+        \n b.
+            b (pow n two) (squaresAfter (succ n));
+
+    squares = squaresAfter zero;
+
     true = \a b. a;
     false = \a b. b;
-in lst false true
+
+
+    takeN = \n.
+        ( n
+            (\restres b.
+                b
+                    (restres true false)
+                    ('cons' (evalN (restres true true)) (restres false))
+            ) (\b. b squares 'empty')
+        ) false;
+
+in takeN five
