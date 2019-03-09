@@ -13,7 +13,7 @@ class ParseError e where
 
 
 data Parser e a =
-    Parser { doParse :: T.Text -> Int -> (Either e a, Int) }
+    Parser { doParse :: T.Text -> Int -> Either [(e, Int)] (a, Int) }
 
 
 instance Functor (Parser e) where
@@ -21,16 +21,17 @@ instance Functor (Parser e) where
         Parser {
             doParse = \inp idx ->
                 case doParse x inp idx of
-                    (Right res, newIdx) -> (Right $ f res, newIdx)
-                    (Left err, newIdx) -> (Left err, newIdx)
+                    Right (res, newIdx) -> Right (f res, newIdx)
+                    Left errs -> Left errs
         }
 
+emap :: (e1 -> e2) -> Parser e1 x -> Parser e2 x
 emap f x =
     Parser {
         doParse = \inp idx ->
             case doParse x inp idx of
-                (Right res, newIdx) -> (Right res, newIdx)
-                (Left err, newIdx) -> (Left $ f err, newIdx)
+                Right x -> Right x
+                Left errs -> Left $ (\(e, i) -> (f e, i)) <$> errs
     }
 
 emap' :: (e -> e) -> Parser e x -> Parser e x
@@ -38,28 +39,37 @@ emap' f x =
     Parser {
         doParse = \inp idx ->
             case doParse x inp idx of
-                (Right res, newIdx) -> (Right res, newIdx)
-                (Left err, newIdx) -> (Left $ f err, newIdx)
+                Right x -> Right x
+                Left errs -> Left $ (\(e, i) -> (f e, i)) <$> errs
+    }
+
+eimap' :: ((e, Int) -> (e, Int)) -> Parser e x -> Parser e x
+eimap' f x =
+    Parser {
+        doParse = \inp idx ->
+            case doParse x inp idx of
+                Right x -> Right x
+                Left errs -> Left $ f <$> errs
     }
 
 
 instance Applicative (Parser e) where
     pure val =
-        Parser { doParse = \inp idx -> (Right val, idx) }
+        Parser { doParse = \inp idx -> Right (val, idx) }
 
     p1 <*> p2 =
         Parser {
             doParse = \inp idx ->
                 case doParse p1 inp idx of
-                    (Right f, idx') ->
+                    Right (f, idx') ->
                         case doParse p2 inp idx' of
-                            (Right v, idx'') -> (Right $ f v, idx'')
-                            (Left err, newIdx) -> (Left err, newIdx)
-                    (Left err, newIdx) -> (Left err, newIdx)
+                            Right (v, idx'') -> Right (f v, idx'')
+                            Left errs -> Left errs
+                    Left errs -> Left errs
             }
 
 epure err =
-    Parser { doParse = \inp idx -> (Left err, idx) }
+    Parser { doParse = \inp idx -> Left [(err, idx)] }
 
 instance Monad (Parser e) where
     return = pure
@@ -67,8 +77,8 @@ instance Monad (Parser e) where
         Parser {
             doParse = \inp idx ->
                 case doParse p inp idx of
-                    (Right v, idx') -> doParse (f v) inp idx'
-                    (Left e, idx') -> (Left e, idx')
+                    Right (v, idx') -> doParse (f v) inp idx'
+                    Left errs -> Left errs
             }
 
 instance Alternative (Parser e) where
@@ -76,21 +86,13 @@ instance Alternative (Parser e) where
     p1 <|> p2 =
         Parser {
             doParse = \inp idx ->
-                case doParse p1 inp idx of
-                    (Right v1, idx1) ->
-                        case doParse p2 inp idx of
-                            (Left _, _) -> (Right v1, idx1)
-                            (Right v2, idx2) ->
-                                if idx2 > idx1
-                                    then (Right v2, idx2)
-                                    else (Right v1, idx1)
-                    (Left e1, idx1) ->
-                        case doParse p2 inp idx of
-                            (Right val, idx') -> (Right val, idx')
-                            (Left e2, idx2) ->
-                                if idx2 > idx1
-                                    then (Left e2, idx2)
-                                    else (Left e1, idx1)
+                case (doParse p1 inp idx, doParse p2 inp idx) of
+                    (Right v, _) ->
+                        Right v
+                    (_, Right v) ->
+                        Right v
+                    (Left errs1, Left errs2) ->
+                        Left $ errs1 ++ errs2
         }
 
 
@@ -125,17 +127,21 @@ readChar =
     Parser {
         doParse = \inp idx ->
             if idx < T.length inp
-                then (Right $ inp `T.index` idx, idx + 1)
-                else (Left unexpectedEnd, idx)
+                then Right (inp `T.index` idx, idx + 1)
+                else Left [(unexpectedEnd, idx)]
     }
 
 
 matchChar :: ParseError e => Char -> Parser e Char
-matchChar ch = do
-    ch' <- readChar
-    guardE (expectedWord $ T.pack [ch]) (ch' == ch)
-
-    return ch'
+matchChar ch =
+    Parser {
+        doParse = \inp idx ->
+            if idx < T.length inp
+                then if inp `T.index` idx == ch
+                    then Right (ch, idx + 1)
+                    else Left [(expectedWord $ T.pack [ch], idx)]
+                else Left [(unexpectedEnd, idx)]
+    }
 
 matchText :: ParseError e => T.Text -> Parser e T.Text
 matchText t =

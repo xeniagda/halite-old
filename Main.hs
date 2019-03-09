@@ -30,14 +30,22 @@ run ast = do
 
 main :: IO ()
 main = do
-
     inp <- T.pack <$> readFile "in.hlt"
 
-    let (parsed, len) = doParse parseAst inp 0
-    if len == T.length inp
-        then case parsed of
-            Right code -> run code
-            Left err -> putStrLn $ show err
-        else
-            putStrLn "Did not parse all" >>
-            putStrLn ("len = " ++ show len ++ ", parsed = " ++ show parsed)
+    case doParse parseAst inp 0 of
+        Right (ast, len) ->
+            if len == T.length inp
+                then run ast
+                else putStrLn "Not all parsed!"
+        Left errs ->
+            mapM_ (showErr 0 (T.lines inp)) errs
+
+showErr i (line:rest) (err, idx) =
+    if idx >= T.length line
+        then showErr (i + 1) rest (err, idx - T.length line)
+        else do
+            let lineNr = show i ++ " | "
+                indent = take (idx + length lineNr) $ cycle " "
+            putStrLn $ lineNr ++ T.unpack line
+            putStrLn $ indent ++ "^ " ++ show err
+            putStrLn ""

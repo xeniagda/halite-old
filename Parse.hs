@@ -15,7 +15,7 @@ reserved = ["let", "in"]
 
 data HParseError
     = UnexpectedEnd
-    | ExpectedAny T.Text
+    | ExpectedWord T.Text
     | ExpectedLetter
     | ExpectCagetory GeneralCategory
     | ReservedWord String
@@ -23,7 +23,7 @@ data HParseError
 
 instance ParseError HParseError where
     unexpectedEnd = UnexpectedEnd
-    expectedWord = ExpectedAny
+    expectedWord = ExpectedWord
     expectedLetter = ExpectedLetter
     expectedCategory = ExpectCagetory
 
@@ -44,13 +44,13 @@ parseLazy =
 parseAst :: Parser HParseError Ast
 parseAst =
     token $ foldl1' (<|>)
-        [ parens parseAst
-        , parseCall
+        [ parseCall
         , parseLet
         , parseLambda
         , parseVar
         , parseToken
         , parseBottom
+        , parens parseAst
         ]
 
 parseBottom :: Parser HParseError Ast
