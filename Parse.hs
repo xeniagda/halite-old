@@ -8,6 +8,7 @@ import Code
 import qualified Data.Text as T
 import Data.Char
 import Data.List
+import Data.Traversable
 import Control.Applicative
 
 reserved = ["let", "in"]
@@ -42,12 +43,12 @@ parseCode :: Parser HParseError Code
 parseCode =
     token $ foldl1' (<|>)
         [ parens parseCode
-        , parseBottom
-        , parseToken
+        , parseCall
         , parseLet
         , parseLambda
-        , parseCall
         , parseVar
+        , parseToken
+        , parseBottom
         ]
 
 parseBottom :: Parser HParseError Code
@@ -68,14 +69,24 @@ parseToken = do
 
 parseLet :: Parser HParseError Code
 parseLet = do
+
     token $ matchText "let"
-    var <- token $ some matchLetter
-    token $ matchChar '='
-    exp <- parseCode
+    binds <- separated parseBind $ token $ matchChar ';'
+
+    matchChar ';' <|> pure ' '
+
     token $ matchText "in"
+
     body <- parseCode
 
-    return $ CLet var exp body
+    return $ foldr (\(var, exp) body -> CLet var exp body) body binds
+
+    where parseBind = do
+              var <- some matchLetter
+              token $ matchChar '='
+              exp <- parseCode
+              return (var, exp)
+
 
 
 parseLambda :: Parser HParseError Code
