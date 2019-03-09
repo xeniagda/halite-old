@@ -58,14 +58,15 @@ parseBottom = (Ast ABottom) <$ (token $ matchChar '!')
 
 parseVar :: Parser HParseError Ast
 parseVar = do
-    name <- token $ some matchLetter
+    name <- matchName
     guardE (ReservedWord name) (not $ name `elem` reserved)
+
     return $ Ast $ AVar name
 
 parseToken :: Parser HParseError Ast
 parseToken = do
     token $ matchChar '\''
-    t <- some matchLetter
+    t <- matchName
     token $ matchChar '\''
     return $ Ast $ AToken t
 
@@ -84,7 +85,7 @@ parseLet = do
     return $ Ast $ ALet binds body
 
     where parseBind = do
-              var <- some matchLetter
+              var <- matchName
               token $ matchChar '='
               exp <- parseAst
               return (var, exp)

@@ -183,6 +183,11 @@ matchLetter =
         foldl1' (<|>) $ map matchGCategory cats
     where cats = [UppercaseLetter, LowercaseLetter, TitlecaseLetter, ModifierLetter, OtherLetter]
 
+matchName :: ParseError e => Parser e String
+matchName = do
+    fst <- matchLetter <|> matchChar '_'
+    rest <- many $ (matchLetter <|> matchChar '_' <|> matchDigit)
+    return $ fst : rest
 
 matchSpaces :: ParseError e => Parser e T.Text
 matchSpaces = fmap T.pack $ many $ matchAnyChars " \n\t"
