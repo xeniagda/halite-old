@@ -15,14 +15,16 @@ reserved = ["let", "in"]
 
 data HParseError
     = UnexpectedEnd
-    | ExpectedAny [T.Text]
+    | ExpectedAny T.Text
+    | ExpectedLetter
     | ExpectCagetory GeneralCategory
     | ReservedWord String
     deriving (Show)
 
 instance ParseError HParseError where
     unexpectedEnd = UnexpectedEnd
-    expectedAnyOf = ExpectedAny
+    expectedWord = ExpectedAny
+    expectedLetter = ExpectedLetter
     expectedCategory = ExpectCagetory
 
 -- Parses as litte code as possible

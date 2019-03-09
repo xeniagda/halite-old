@@ -7,7 +7,8 @@ import Data.List
 
 class ParseError e where
     unexpectedEnd :: e
-    expectedAnyOf :: [T.Text] -> e
+    expectedWord :: T.Text -> e
+    expectedLetter :: e
     expectedCategory :: GeneralCategory -> e
 
 
@@ -25,6 +26,15 @@ instance Functor (Parser e) where
         }
 
 emap f x =
+    Parser {
+        doParse = \inp idx ->
+            case doParse x inp idx of
+                (Right res, newIdx) -> (Right res, newIdx)
+                (Left err, newIdx) -> (Left $ f err, newIdx)
+    }
+
+emap' :: (e -> e) -> Parser e x -> Parser e x
+emap' f x =
     Parser {
         doParse = \inp idx ->
             case doParse x inp idx of
@@ -123,12 +133,14 @@ readChar =
 matchChar :: ParseError e => Char -> Parser e Char
 matchChar ch = do
     ch' <- readChar
-    guardE (expectedAnyOf [T.pack [ch]]) (ch' == ch)
+    guardE (expectedWord $ T.pack [ch]) (ch' == ch)
 
     return ch'
 
 matchText :: ParseError e => T.Text -> Parser e T.Text
-matchText t = const t <$> matchString (T.unpack t)
+matchText t =
+    emap' (const $ expectedWord t) $
+        const t <$> matchString (T.unpack t)
     where
         matchString "" = pure ()
         matchString (ch:rest) = do
@@ -161,7 +173,8 @@ matchInt = do
 
 matchLetter :: ParseError e => Parser e Char
 matchLetter =
-    foldl1' (<|>) $ map matchGCategory cats
+    emap' (const expectedLetter) $
+        foldl1' (<|>) $ map matchGCategory cats
     where cats = [UppercaseLetter, LowercaseLetter, TitlecaseLetter, ModifierLetter, OtherLetter]
 
 
