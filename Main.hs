@@ -17,15 +17,16 @@ run ast = do
 
     putStrLn $ "Desugared: " ++ cpprint code
     let v = intoExpr code
-        (mem, whnfed) = weak [] v
+        (mem, weaked) = weak [] v
 
     mapM_ (\(i, v) -> putStrLn $ (show i ++ ": " ++ vpprint v)) $ zip [0..] mem
-    putStrLn $ "Whnfed: " ++ vpprint whnfed
+    putStrLn $ "Weak: " ++ vpprint weaked
 
-    let (mem', nfed) = eval mem whnfed
+    let (mem', evaled) = eval mem weaked
 
+    putStrLn "Evaled memory: "
     mapM_ (\(i, v) -> putStrLn $ (show i ++ ": " ++ vpprint v)) $ zip [0..] mem
-    putStrLn $ "Nfed: " ++ vpprint nfed
+    putStrLn $ "Evaled: " ++ vpprint evaled
 
 main :: IO ()
 main = do
