@@ -46,17 +46,15 @@ apprint i (Ast part) =
                 AVar x -> x
                 AToken x -> "'" ++ x ++ "'"
                 ALet binds body ->
-                    let ppbinds =
-                            concatMap (\(v, e) ->
-                                "\n" ++ indentOf (i + 1) ++ v ++ " = " ++ apprint (i + 2) e ++ ";"
-                            ) binds
+                    let sep = "\n" ++ indentOf (i + 1)
+                        ppbinds = map (\(v, e) -> v ++ " = " ++ apprint (i + 2) e ++ ";" ) binds
+                        ppbinds' = intercalate sep ppbinds
                         ppbody = apprint (i+1) body
-                    in "\n" ++ indent ++ "let " ++ ppbinds ++ "\n" ++ indent ++ "in " ++ ppbody
+                    in "\n" ++ indent ++ "let " ++ ppbinds' ++ "\n" ++ indent ++ "in " ++ ppbody
                 ALambda vars body ->
-                    let ppvars = concatMap (\v -> v ++ " ") vars
-                        ppvars' = (take (length ppvars - 1) ppvars)
+                    let ppvars = intercalate " " vars
                         ppbody = apprint (i + 1) body
-                    in "\n" ++ indent ++ "λ" ++ ppvars' ++ ".\n" ++ indentOf (i + 1) ++ ppbody
+                    in "\n" ++ indent ++ "λ" ++ ppvars ++ ".\n" ++ indentOf (i + 1) ++ ppbody
                 ACall fs ->
                     let ppfs = concatMap (\v -> apprint (i + 1) v ++ " ") fs
                     in "(" ++ (take (length ppfs - 1) ppfs) ++ ")"
