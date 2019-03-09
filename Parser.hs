@@ -67,16 +67,34 @@ instance Alternative (Parser e) where
         Parser {
             doParse = \inp idx ->
                 case doParse p1 inp idx of
-                    (Right val, idx') -> (Right val, idx')
-                    (Left _, _) ->
+                    (Right v1, idx1) ->
+                        case doParse p2 inp idx of
+                            (Left _, _) -> (Right v1, idx1)
+                            (Right v2, idx2) ->
+                                if idx2 > idx1
+                                    then (Right v2, idx2)
+                                    else (Right v1, idx1)
+                    (Left e1, idx1) ->
                         case doParse p2 inp idx of
                             (Right val, idx') -> (Right val, idx')
-                            (Left e, idx') -> (Left e, idx')
+                            (Left e2, idx2) ->
+                                if idx2 > idx1
+                                    then (Left e2, idx2)
+                                    else (Left e1, idx1)
         }
+
 
 guardE :: ParseError e => e -> Bool -> Parser e ()
 guardE e True = pure ()
 guardE e False = epure e
+
+separated :: Parser e a -> Parser e b -> Parser e [a]
+separated par sep = do
+    p1 <- par
+    rest <- many $ sep >> par
+    return $ p1 : rest
+
+
 
 token :: (ParseError e) => Parser e a -> Parser e a
 token p = do
