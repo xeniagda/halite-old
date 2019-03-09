@@ -28,9 +28,18 @@ passVar :: String -> Value -> Value -> Value
 passVar vName vVal value =
     case value of
         VThunk x -> passVar vName vVal $ intoExpr x
-        VVar y -> if y == vName then vVal else value
-        VLet y x c -> if y == vName then value else VLet y x $ passVar vName vVal c
-        VLambda y c -> if y == vName then value else VLambda y $ passVar vName vVal c
+        VVar y ->
+            if y == vName
+                then vVal
+                else value
+        VLet y x c ->
+            if y == vName
+                then value
+                else VLet y (passVar vName vVal x) $ passVar vName vVal c
+        VLambda y c ->
+            if y == vName
+                then value
+                else VLambda y $ passVar vName vVal c
         VCall y c -> VCall (passVar vName vVal y) (passVar vName vVal c)
         a -> a
 
@@ -68,6 +77,7 @@ whnf mem val =
                 Nothing -> (mem, val)
         a -> (mem, a)
 
+
 run :: Code -> IO ()
 run code = do
     putStrLn $ "Evaluating: " ++ cpprint code
@@ -80,11 +90,13 @@ run code = do
 main :: IO ()
 main = do
 
-    let inp = "let tup = \\ b. b 'fst' 'snd' in tup (\\a. \\b. a)"
+    inp <- T.pack <$> readFile "in.hlt"
 
     let (parsed, len) = doParse parseCode inp 0
     if len == T.length inp
         then case parsed of
             Right code -> run code
             Left err -> putStrLn $ show err
-        else putStrLn "Did not parse all"
+        else
+            putStrLn "Did not parse all" >>
+            putStrLn ("len = " ++ show len ++ ", parsed = " ++ show parsed)

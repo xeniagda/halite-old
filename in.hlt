@@ -1,0 +1,5 @@
+let makelst = \num. \b. b num (makelst ('succ' num));
+    lst = makelst 'zero';
+    true = \a. \b. a;
+    false = \a. \b. b;
+in lst false true
