@@ -3,7 +3,7 @@
 module Parse where
 
 import Parser
-import Code
+import Ast
 
 import qualified Data.Text as T
 import Data.Char
@@ -26,23 +26,23 @@ instance ParseError HParseError where
     expectedCategory = ExpectCagetory
 
 -- Parses as litte code as possible
--- eg. a b -> CVar a, rest = "b"
-parseLazy :: Parser HParseError Code
+-- eg. a b -> AVar a, rest = "b"
+parseLazy :: Parser HParseError Ast
 parseLazy =
     token $ foldl1' (<|>)
         [ parseBottom
         , parseToken
         , parseVar
         , parseLet
-        , parens parseCode
+        , parens parseAst
         ]
 
 -- Parses as much code as possible
--- eg. a b -> CCall (CVar a) (CVar b), rest = ""
-parseCode :: Parser HParseError Code
-parseCode =
+-- eg. a b -> ACall (AVar a) (AVar b), rest = ""
+parseAst :: Parser HParseError Ast
+parseAst =
     token $ foldl1' (<|>)
-        [ parens parseCode
+        [ parens parseAst
         , parseCall
         , parseLet
         , parseLambda
@@ -51,23 +51,23 @@ parseCode =
         , parseBottom
         ]
 
-parseBottom :: Parser HParseError Code
-parseBottom = CBottom <$ (token $ matchChar '!')
+parseBottom :: Parser HParseError Ast
+parseBottom = (Ast ABottom) <$ (token $ matchChar '!')
 
-parseVar :: Parser HParseError Code
+parseVar :: Parser HParseError Ast
 parseVar = do
     name <- token $ some matchLetter
     guardE (ReservedWord name) (not $ name `elem` reserved)
-    return $ CVar name
+    return $ Ast $ AVar name
 
-parseToken :: Parser HParseError Code
+parseToken :: Parser HParseError Ast
 parseToken = do
     token $ matchChar '\''
     t <- some matchLetter
     token $ matchChar '\''
-    return $ CToken t
+    return $ Ast $ AToken t
 
-parseLet :: Parser HParseError Code
+parseLet :: Parser HParseError Ast
 parseLet = do
 
     token $ matchText "let"
@@ -77,29 +77,30 @@ parseLet = do
 
     token $ matchText "in"
 
-    body <- parseCode
+    body <- parseAst
 
-    return $ foldr (\(var, exp) body -> CLet var exp body) body binds
+    return $ Ast $ ALet binds body
 
     where parseBind = do
               var <- some matchLetter
               token $ matchChar '='
-              exp <- parseCode
+              exp <- parseAst
               return (var, exp)
 
 
 
-parseLambda :: Parser HParseError Code
+parseLambda :: Parser HParseError Ast
 parseLambda = do
     token $ matchChar '\\'
-    var <- token $ some matchLetter
+    vars <- some $ token $ some matchLetter
     token $ matchChar '.'
-    body <- parseCode
+    body <- parseAst
 
-    return $ CLambda var body
+    return $ Ast $ ALambda vars body
 
-parseCall :: Parser HParseError Code
+parseCall :: Parser HParseError Ast
 parseCall = do
     fs <- some $ parseLazy
 
-    return $ foldl1' CCall fs
+    guardE UnexpectedEnd $ length fs > 1
+    return $ Ast $ ACall fs

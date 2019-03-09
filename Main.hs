@@ -4,13 +4,18 @@ import qualified Data.Text as T
 
 import Interpreter
 import Code
+import Ast
 import Value
 import Parser
 import Parse
 
-run :: Code -> IO ()
-run code = do
-    putStrLn $ "Evaluating: " ++ cpprint code
+run :: Ast -> IO ()
+run ast = do
+    putStrLn $ "Evaluating:\n" ++ apprint 0 ast
+
+    let code = astToCode ast
+
+    putStrLn $ "Desugared: " ++ cpprint code
     let v = intoExpr code
         (mem, whnfed) = weak [] v
 
@@ -27,7 +32,7 @@ main = do
 
     inp <- T.pack <$> readFile "in.hlt"
 
-    let (parsed, len) = doParse parseCode inp 0
+    let (parsed, len) = doParse parseAst inp 0
     if len == T.length inp
         then case parsed of
             Right code -> run code
