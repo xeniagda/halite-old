@@ -1,43 +1,27 @@
 module Value where
 
+import Data.List
 import Code
 
 data Value
-    = VThunk Code
+    = VThunk [(String, Value)] Code
     | VRef Int
-    | VBottom
-    | VVar String
     | VToken String
-    | VLet String Value Value
-    | VLet' String Value Value
-    | VLambda String Value
-    | VLambda' String Value
+    | VLambda String [(String, Value)] Code
     | VCall Value Value
     deriving (Show)
 
 vpprint :: Value -> String
 vpprint code =
     case code of
-        VThunk c -> "[" ++ cpprint c ++ "]"
-        VBottom -> "!"
-        VVar x -> x
+        VThunk vars c ->
+            let ppvars =
+                    intercalate "," $ map (\(var, val) -> var ++ "=" ++ vpprint val) vars
+            in "{" ++ cpprint c ++ "}[" ++ ppvars ++ "]"
         VRef i -> "#" ++ show i
         VToken x -> "'" ++ x ++ "'"
-        VLet v val body -> "(let " ++ v ++ " = " ++ vpprint val ++ " in " ++ vpprint body ++ ")"
-        VLet' v val body -> "(let' " ++ v ++ " = " ++ vpprint val ++ " in " ++ vpprint body ++ ")"
-        VLambda v body -> "(\\" ++ v ++ ". " ++ vpprint body ++ ")"
-        VLambda' v body -> "(\\'" ++ v ++ ". " ++ vpprint body ++ ")"
+        VLambda var bound c ->
+            let ppbound =
+                    intercalate "," $ map (\(var, val) -> var ++ "=" ++ vpprint val) bound
+            in "(\\" ++ var ++ ". {" ++ cpprint c ++ "})[" ++ ppbound ++ "]"
         VCall a b -> "(" ++ vpprint a ++ " " ++ vpprint b ++ ")"
-
-intoExpr :: Code -> Value
-intoExpr code =
-    case code of
-        CBottom      -> VBottom
-        CVar x       -> VVar x
-        CToken x     -> VToken x
-        CLet x y z   -> VLet x (VThunk y) (VThunk z)
-        CLet' x y z  -> VLet' x (VThunk y) (VThunk z)
-        CLambda x y  -> VLambda x (VThunk y)
-        CLambda' x y -> VLambda' x (VThunk y)
-        CCall x y    -> VCall (VThunk x) (VThunk y)
-

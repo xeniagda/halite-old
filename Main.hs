@@ -16,9 +16,9 @@ run ast = do
     let code = astToCode ast
         code' = optimizeStricts code
 
-    parseDone <- getCurrentTime
+    parseDone <- code' `seq` getCurrentTime
 
-    let v = intoExpr code'
+    let v = VThunk [] code
         (mem, weaked) = weak [] v
         (mem', evaled) = eval mem weaked
 
@@ -27,12 +27,11 @@ run ast = do
     putStrLn $ "Evaluating:\n" ++ apprint 0 ast
     putStrLn $ "Desugared: " ++ cpprint code'
 
-    mapM_ (\(i, v) -> putStrLn $ (show i ++ ": " ++ vpprint v)) $ zip [0..] mem
+    -- mapM_ (\(i, v) -> putStrLn $ (show i ++ ": " ++ vpprint v)) $ zip [0..] mem
     putStrLn $ "Weak: " ++ vpprint weaked
 
-
-    putStrLn "Evaled memory: "
-    mapM_ (\(i, v) -> putStrLn $ (show i ++ ": " ++ vpprint v)) $ zip [0..] mem
+    -- putStrLn "Evaled memory: "
+    -- mapM_ (\(i, v) -> putStrLn $ (show i ++ ": " ++ vpprint v)) $ zip [0..] mem
     putStrLn $ "Evaled: " ++ vpprint evaled
 
     return (parseDone, runDone)
