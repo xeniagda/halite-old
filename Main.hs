@@ -1,5 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+import System.IO
+import System.Environment
 import qualified Data.Text as T
 import Data.Time.Clock
 
@@ -20,7 +22,7 @@ run ast = do
 
     let v = VThunk [] code
         (mem, weaked) = weak [] v
-        (mem', evaled) = eval mem weaked
+        (mem', evaled) = eval mem v
 
     runDone <- evaled `seq` mem' `seq` getCurrentTime
 
@@ -36,9 +38,40 @@ run ast = do
 
     return (parseDone, runDone)
 
-main :: IO ()
-main = do
-    inp <- T.pack <$> readFile "in.hlt"
+showErr i (line:rest) (err, idx) =
+    if idx > T.length line
+        then showErr (i + 1) rest (err, idx - T.length line)
+        else do
+            let lineNr = show i ++ " | "
+                indent = take (idx + length lineNr) $ cycle " "
+            putStrLn $ lineNr ++ T.unpack line
+            putStrLn $ indent ++ "^ " ++ show err
+            putStrLn ""
+
+repl :: IO ()
+repl =
+    putStrLn "Halite Repl" >> loop
+    where
+        loop = do
+            putStr "> "
+            hFlush stdout
+            inp <- T.pack <$> getLine
+
+            case doParse parseAst inp 0 of
+                Right (ast, len) ->
+                    if len == T.length inp
+                        then do
+                            run ast
+                            return ()
+                        else putStrLn "Not all parsed!"
+                Left errs ->
+                    mapM_ (showErr 0 (T.lines inp)) errs
+
+            loop
+
+runFile :: String -> IO ()
+runFile filename = do
+    inp <- T.pack <$> readFile filename
 
     start <- getCurrentTime
 
@@ -54,12 +87,10 @@ main = do
         Left errs ->
             mapM_ (showErr 0 (T.lines inp)) errs
 
-showErr i (line:rest) (err, idx) =
-    if idx >= T.length line
-        then showErr (i + 1) rest (err, idx - T.length line)
-        else do
-            let lineNr = show i ++ " | "
-                indent = take (idx + length lineNr) $ cycle " "
-            putStrLn $ lineNr ++ T.unpack line
-            putStrLn $ indent ++ "^ " ++ show err
-            putStrLn ""
+main :: IO ()
+main = do
+    args <- getArgs
+    case args of
+        [] -> repl
+        [file] -> runFile file
+        _ -> putStrLn "Please specify one file to run or none to get a repl"
