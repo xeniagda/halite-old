@@ -1,14 +1,17 @@
 module Code where
 
+import Data.List
+
 data Code
     = CBottom
     | CVar String
-    | CToken String
+    | CConstructor String
     | CLet String Code Code
     | CLet' String Code Code
     -- ^ Strict let statement with no recurion. Does not allocate
     | CLambda String Code
     | CLambda' String Code -- Lambda with only one occurence of the variable in the body
+    | CMatch Code [([String], Code)]
     | CCall Code Code
     deriving (Show)
 
@@ -17,11 +20,17 @@ cpprint code =
     case code of
         CBottom -> "!"
         CVar x -> x
-        CToken x -> "'" ++ x ++ "'"
+        CConstructor x -> x
         CLet v val body -> "(let " ++ v ++ " = " ++ cpprint val ++ " in " ++ cpprint body ++ ")"
         CLet' v val body -> "(let' " ++ v ++ " = " ++ cpprint val ++ " in " ++ cpprint body ++ ")"
         CLambda v body -> "(\\" ++ v ++ ". " ++ cpprint body ++ ")"
         CLambda' v body -> "(\\'" ++ v ++ ". " ++ cpprint body ++ ")"
+        CMatch x branches ->
+            let ppbranches =
+                    concatMap
+                        (\(pat, branch) -> intercalate " " pat ++ " -> " ++ cpprint branch ++ "; ")
+                        branches
+            in "match (" ++ cpprint x ++ ") {" ++ ppbranches ++ "}"
         CCall a b -> "(" ++ cpprint a ++ " " ++ cpprint b ++ ")"
 
 countVar :: String -> Code -> Int
@@ -48,6 +57,9 @@ countVar var code =
                         then 0
                         else go body
                 CCall a b -> go a + go b
+                CMatch x branches ->
+                    let branchesCount = map (go . snd) branches
+                    in sum branchesCount + go x
                 _ -> 0
 
 optimizeStricts :: Code -> Code

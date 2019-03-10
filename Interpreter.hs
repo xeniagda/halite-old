@@ -1,5 +1,6 @@
 module Interpreter where
 
+import Data.Maybe
 import Data.List
 import System.IO.Unsafe
 
@@ -72,7 +73,7 @@ unthunk mem vars code =
                 [] -> error $ "Undefined variable " ++ x
                 (var,val):rest | var == x -> (mem, val)
                 _:rest -> unthunk mem rest code
-        CToken x -> (mem, VToken x)
+        CConstructor x -> (mem, VConstructor x)
 
         CLet var cval cbody ->
             let (mem1, ref) = alloc mem (error "dummy")
@@ -87,6 +88,39 @@ unthunk mem vars code =
 
         CLambda x y  -> (mem, VLambda x vars y)
         CLambda' x y -> (mem, VLambda x vars y) -- TODO: Add VLambda'
+        CMatch x branches ->
+            let (mem', x') = uncurry weak $ unthunk mem vars x
+                bindTo pat =
+                    if pat == ["_"]
+                        then Just []
+                        else
+                            let res = foldr
+                                    (\tok curr ->
+                                        case curr of
+                                            Just (Just at, bound) ->
+                                                case at of
+                                                    VConstructor x ->
+                                                        if x == tok
+                                                            then Just (Nothing, bound)
+                                                            else Nothing
+                                                    VCall x y ->
+                                                        Just (Just x, (tok,y):bound)
+                                                    _ -> Nothing
+                                            _ -> Nothing
+                                    ) (Just (Just x', [])) pat
+                        in case res of
+                            Just (Nothing, bound) -> Just bound
+                            _ -> Nothing
+                matches = mapMaybe
+                    (\(pat, branch) ->
+                        case bindTo pat of
+                            Just bound -> Just (bound, branch)
+                            Nothing -> Nothing
+                    ) branches
+                (bound, branch) = case matches of
+                    a:_ -> a
+                    [] -> error "No patterns matching"
+            in unthunk mem' (bound ++ vars) branch
         CCall x y    -> (mem, VCall (VThunk vars x) (VThunk vars y))
 
 weak :: Memory -> Value -> (Memory, Value)

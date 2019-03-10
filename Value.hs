@@ -6,7 +6,7 @@ import Code
 data Value
     = VThunk [(String, Value)] Code
     | VRef Int
-    | VToken String
+    | VConstructor String
     | VLambda String [(String, Value)] Code
     | VCall Value Value
     deriving (Show)
@@ -19,7 +19,7 @@ vpprint code =
                     intercalate "," $ map (\(var, val) -> var ++ "=" ++ vpprint val) vars
             in "{" ++ cpprint c ++ "}[" ++ ppvars ++ "]"
         VRef i -> "#" ++ show i
-        VToken x -> "'" ++ x ++ "'"
+        VConstructor x -> "'" ++ x ++ "'"
         VLambda var bound c ->
             let ppbound =
                     intercalate "," $ map (\(var, val) -> var ++ "=" ++ vpprint val) bound

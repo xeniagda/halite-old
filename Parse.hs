@@ -11,7 +11,7 @@ import Data.List
 import Data.Traversable
 import Control.Applicative
 
-reserved = ["let", "in"]
+reserved = ["let", "in", "match"]
 
 data HParseError
     = UnexpectedEnd
@@ -42,7 +42,7 @@ parseLazy :: Parser HParseError Ast
 parseLazy =
     token $ foldl1' (<|>)
         [ parseBottom
-        , parseToken
+        , parseConstructor
         , parseVar
         , parseLet
         , parens parseAst
@@ -55,9 +55,10 @@ parseAst =
     token $ foldl1' (<|>)
         [ parseCall
         , parseLet
+        , parseMatch
         , parseLambda
         , parseVar
-        , parseToken
+        , parseConstructor
         , parseBottom
         , parens parseAst
         ]
@@ -70,14 +71,12 @@ parseVar = do
     (Ast . AVar) <$>
         guardE
             (\name -> if name `elem` reserved then Just $ ReservedWord name else Nothing)
-            matchName
+            matchVName
 
-parseToken :: Parser HParseError Ast
-parseToken = do
-    token $ matchChar '\''
-    t <- matchName
-    token $ matchChar '\''
-    return $ Ast $ AToken t
+parseConstructor :: Parser HParseError Ast
+parseConstructor = do
+    t <- matchCName
+    return $ Ast $ AConstructor t
 
 parseLet :: Parser HParseError Ast
 parseLet = do
@@ -94,12 +93,34 @@ parseLet = do
     return $ Ast $ ALet binds body
 
     where parseBind = do
-              var <- matchName
+              var <- matchVName
               token $ matchChar '='
               exp <- parseAst
               return (var, exp)
 
+parseMatch :: Parser HParseError Ast
+parseMatch = do
 
+    token $ matchText "match"
+    x <- parseAst
+
+    token $ matchText "{"
+
+    binds <- separated parsePat $ token $ matchChar ';'
+
+    matchChar ';' <|> pure ' '
+
+    token $ matchText "}"
+    return $ Ast $ AMatch x binds
+
+    where
+        parsePat = do
+            constructor <- matchCName
+            pat <- many $ token matchVName
+            token $ matchText "->"
+            branch <- parseAst
+
+            return (constructor:pat, branch)
 
 parseLambda :: Parser HParseError Ast
 parseLambda = do
@@ -118,3 +139,23 @@ parseCall =
                 then Just UnexpectedEnd
                 else Nothing
         ) (some parseLazy)
+
+matchLetter :: ParseError e => Parser e Char
+matchLetter =
+    emap' (const expectedLetter) $
+        foldl1' (<|>) $ map matchGCategory cats
+    where cats = [UppercaseLetter, LowercaseLetter, TitlecaseLetter, ModifierLetter, OtherLetter]
+
+matchVName :: ParseError e => Parser e String
+matchVName = do
+    fst <- (matchGCategory LowercaseLetter) <|> matchChar '_'
+    rest <- many $ (matchLetter <|> matchChar '_' <|> matchDigit)
+    return $ fst : rest
+
+
+matchCName :: ParseError e => Parser e String
+matchCName = do
+    fst <- (matchGCategory UppercaseLetter)
+    rest <- many $ (matchLetter <|> matchChar '_' <|> matchDigit)
+    return $ fst : rest
+
