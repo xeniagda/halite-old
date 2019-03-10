@@ -49,12 +49,12 @@ apprint i (Ast part) =
                     let sep = "\n" ++ indentOf (i + 1)
                         ppbinds = map (\(v, e) -> v ++ " = " ++ apprint (i + 2) e ++ ";" ) binds
                         ppbinds' = intercalate sep ppbinds
-                        ppbody = apprint (i+1) body
-                    in "\n" ++ indent ++ "let " ++ ppbinds' ++ "\n" ++ indent ++ "in " ++ ppbody
+                        ppbody = apprint (i + 1) body
+                    in "let " ++ ppbinds' ++ "\n" ++ indent ++ "in " ++ ppbody
                 ALambda vars body ->
                     let ppvars = intercalate " " vars
                         ppbody = apprint (i + 1) body
-                    in "\n" ++ indent ++ "λ" ++ ppvars ++ ".\n" ++ indentOf (i + 1) ++ ppbody
+                    in "λ" ++ ppvars ++ ". " ++ ppbody
                 ACall fs ->
                     let ppfs = concatMap (\v -> apprint (i + 1) v ++ " ") fs
                     in "(" ++ (take (length ppfs - 1) ppfs) ++ ")"
