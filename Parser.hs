@@ -10,6 +10,7 @@ class ParseError e where
     expectedWord :: T.Text -> e
     expectedLetter :: e
     expectedCategory :: GeneralCategory -> e
+    groupe :: (e, Int) -> (e, Int) -> Maybe (e, Int)
 
 
 data Parser e a =
@@ -81,7 +82,7 @@ instance Monad (Parser e) where
                     Left errs -> Left errs
             }
 
-instance Alternative (Parser e) where
+instance (ParseError e) => Alternative (Parser e) where
     empty = epure undefined
     p1 <|> p2 =
         Parser {
@@ -92,15 +93,44 @@ instance Alternative (Parser e) where
                     (_, Right v) ->
                         Right v
                     (Left errs1, Left errs2) ->
-                        Left $ errs1 ++ errs2
+                        Left $ groupErrs $ errs1 ++ errs2
         }
 
+noErr :: Parser e x -> Parser e1 x
+noErr parser =
+    Parser {
+        doParse = \inp idx ->
+            case doParse parser inp idx of
+                Right a -> Right a
+                Left es -> Left []
+    }
 
-guardE :: ParseError e => e -> Bool -> Parser e ()
-guardE e True = pure ()
-guardE e False = epure e
+groupErrs :: ParseError e => [(e, Int)] -> [(e, Int)]
+groupErrs [] = []
+groupErrs (curr:rest) =
+    let (firstGrouped, others) =
+            foldl'
+                (\(fg, others) elem ->
+                    case groupe fg elem of
+                        Just x -> (x, others)
+                        Nothing -> (fg, elem:others)
+                ) (curr, []) rest
+    in firstGrouped : groupErrs others
 
-separated :: Parser e a -> Parser e b -> Parser e [a]
+
+guardE :: ParseError e => (x -> Maybe e) -> Parser e x -> Parser e x
+guardE f parser =
+    Parser {
+        doParse = \inp idx ->
+            case doParse parser inp idx of
+                Right (res, newIdx) ->
+                    case f res of
+                        Nothing -> Right (res, newIdx)
+                        Just e -> Left [(e, idx)]
+                Left errs -> Left errs
+    }
+
+separated :: ParseError e => Parser e a -> Parser e b -> Parser e [a]
 separated par sep = do
     p1 <- par
     rest <- many $ sep >> par
@@ -160,10 +190,13 @@ matchAnyChars chars = foldl1' (<|>) $ map matchChar chars
 
 matchGCategory :: ParseError e => GeneralCategory -> Parser e Char
 matchGCategory cat = do
-    ch <- readChar
-    guardE (expectedCategory cat) (generalCategory ch == cat)
+    guardE
+        (\ch -> if generalCategory ch /= cat
+            then Just $ expectedCategory cat
+            else Nothing
+        )
+        readChar
 
-    return ch
 
 matchDigit :: ParseError e => Parser e Char
 matchDigit = matchAnyChars ['0'..'9']

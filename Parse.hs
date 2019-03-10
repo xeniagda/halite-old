@@ -15,17 +15,26 @@ reserved = ["let", "in"]
 
 data HParseError
     = UnexpectedEnd
-    | ExpectedWord T.Text
+    | ExpectedAnyOf [T.Text]
     | ExpectedLetter
     | ExpectCagetory GeneralCategory
     | ReservedWord String
-    deriving (Show)
+    deriving (Show, Eq)
 
 instance ParseError HParseError where
     unexpectedEnd = UnexpectedEnd
-    expectedWord = ExpectedWord
+    expectedWord x = ExpectedAnyOf [x]
     expectedLetter = ExpectedLetter
     expectedCategory = ExpectCagetory
+
+    groupe (e1, idx1) (e2, idx2) =
+        if idx1 == idx2
+            then case (e1, e2) of
+                (ExpectedAnyOf as, ExpectedAnyOf bs) -> Just (ExpectedAnyOf $ nub $ as ++ bs, idx1)
+                (a, b) | a == b -> Just (a, idx1)
+                _ -> Nothing
+            else Nothing
+
 
 -- Parses as litte code as possible
 -- eg. a b -> AVar a, rest = "b"
@@ -58,10 +67,10 @@ parseBottom = (Ast ABottom) <$ (token $ matchChar '!')
 
 parseVar :: Parser HParseError Ast
 parseVar = do
-    name <- matchName
-    guardE (ReservedWord name) (not $ name `elem` reserved)
-
-    return $ Ast $ AVar name
+    (Ast . AVar) <$>
+        guardE
+            (\name -> if name `elem` reserved then Just $ ReservedWord name else Nothing)
+            matchName
 
 parseToken :: Parser HParseError Ast
 parseToken = do
@@ -102,8 +111,10 @@ parseLambda = do
     return $ Ast $ ALambda vars body
 
 parseCall :: Parser HParseError Ast
-parseCall = do
-    fs <- some $ parseLazy
-
-    guardE UnexpectedEnd $ length fs > 1
-    return $ Ast $ ACall fs
+parseCall =
+    (Ast . ACall) <$>
+        guardE (\fs ->
+            if length fs < 2
+                then Just UnexpectedEnd
+                else Nothing
+        ) (some parseLazy)
