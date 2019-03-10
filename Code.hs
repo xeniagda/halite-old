@@ -73,6 +73,9 @@ countVar var code =
                 CMatch x branches ->
                     let branchesCount = map (go . snd) branches
                     in sum branchesCount + go x
+                CMatchN x branches ->
+                    let branchesCount = map (go . snd) branches
+                    in sum branchesCount + go x
                 _ -> 0
 
 optimizeStricts :: Code -> Code
