@@ -95,7 +95,7 @@ weak mem val =
         VCall f arg ->
             case weak mem f of
                 (mem', VLambda var vars code) ->
-                    unthunk mem ((var,arg):vars) code
+                    uncurry weak $ unthunk mem ((var,arg):vars) code
                 (mem', f') -> (mem', VCall f' arg)
         VRef i ->
             case getMem mem i of
