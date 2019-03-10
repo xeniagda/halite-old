@@ -10,6 +10,7 @@ data Ast =
 data AstPart
     = ABottom
     | AVar String
+    | ANum Int
     | AConstructor String
     | ALet [(String, Ast)] Ast
     | ALambda [String] Ast
@@ -26,6 +27,7 @@ astToCode (Ast part) =
             case part of
                 ABottom -> CBottom
                 AVar x -> CVar x
+                ANum x -> CNum x
                 AConstructor t -> CConstructor t
                 ALet [] body -> astToCode body
                 ALet ((v,exp):rest) body -> CLet v (astToCode exp) $ astCompToCode $ ALet rest body
@@ -47,6 +49,7 @@ apprint i (Ast part) =
             case part of
                 ABottom -> "!"
                 AVar x -> x
+                ANum x -> show x
                 AConstructor x -> x
                 ALet binds body ->
                     let sep = "\n" ++ indentOf (i + 1)

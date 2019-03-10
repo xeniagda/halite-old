@@ -44,6 +44,7 @@ parseLazy =
         [ parseBottom
         , parseConstructor
         , parseVar
+        , parseNum
         , parseLet
         , parens parseAst
         ]
@@ -58,6 +59,7 @@ parseAst =
         , parseMatch
         , parseLambda
         , parseVar
+        , parseNum
         , parseConstructor
         , parseBottom
         , parens parseAst
@@ -72,6 +74,9 @@ parseVar = do
         guardE
             (\name -> if name `elem` reserved then Just $ ReservedWord name else Nothing)
             matchVName
+
+parseNum :: Parser HParseError Ast
+parseNum = (Ast . ANum) <$> matchInt
 
 parseConstructor :: Parser HParseError Ast
 parseConstructor = do

@@ -7,6 +7,24 @@ import System.IO.Unsafe
 import Code
 import Value
 
+numBuiltin :: String -> (Int -> Int -> Int) -> Value
+numBuiltin name f =
+    VBuiltin name $ \v1 ->
+        case v1 of
+            VNum x ->
+                Just $
+                    VBuiltin (name ++ show x)
+                        $ \v2 -> case v2 of
+                            VNum y -> Just $ VNum $ f x y
+                            _ -> Nothing
+            _ -> Nothing
+
+builtins :: [(String, Value)]
+builtins =
+    [ ("add", numBuiltin "add" (+))
+    , ("sub", numBuiltin "sub" (-))
+    , ("mul", numBuiltin "mul" (*))
+    ]
 
 type Memory = [Value]
 
@@ -69,12 +87,14 @@ unthunk mem vars code =
     case code of
         CBottom -> (mem, error "Bottom unthunked")
         CVar x ->
-            case vars of
-                [] -> error $ "Undefined variable " ++ x
-                (var,val):rest | var == x -> (mem, val)
-                _:rest -> unthunk mem rest code
+            case lookup x builtins of
+                Just builtin -> (mem, builtin)
+                Nothing ->
+                    case lookup x vars of
+                        Just val -> (mem, val)
+                        Nothing -> error $ "Undefined variable " ++ x
+        CNum x -> (mem, VNum x)
         CConstructor x -> (mem, VConstructor x)
-
         CLet var cval cbody ->
             let (mem1, ref) = alloc mem (error "dummy")
                 (mem1', val') = unthunk mem1 ((var,(VRef ref)):vars) cval
@@ -131,6 +151,10 @@ weak mem val =
             case weak mem f of
                 (mem', VLambda var vars code) ->
                     uncurry weak $ unthunk mem ((var,arg):vars) code
+                (mem', f'@(VBuiltin _ bf)) ->
+                    case bf arg of
+                        Just x -> (mem', x)
+                        Nothing -> (mem', VCall f' arg)
                 (mem', f') -> (mem', VCall f' arg)
         VRef i ->
             case getMem mem i of
@@ -149,6 +173,11 @@ eval mem val =
             case eval mem f of
                 (mem1, VLambda var vars code) ->
                     uncurry eval $ unthunk mem1 ((var,arg):vars) code
+                (mem', f'@(VBuiltin _ f)) ->
+                    let (mem1', arg') = eval mem arg
+                    in case f arg' of
+                        Just x -> (mem1', x)
+                        Nothing -> (mem1', VCall f' arg')
                 (mem1, f') ->
                     let (mem1', arg') = eval mem arg
                     in (mem1', VCall f' arg')

@@ -5,6 +5,7 @@ import Data.List
 data Code
     = CBottom
     | CVar String
+    | CNum Int
     | CConstructor String
     | CLet String Code Code
     | CLet' String Code Code
@@ -20,6 +21,7 @@ cpprint code =
     case code of
         CBottom -> "!"
         CVar x -> x
+        CNum x -> show x
         CConstructor x -> x
         CLet v val body -> "(let " ++ v ++ " = " ++ cpprint val ++ " in " ++ cpprint body ++ ")"
         CLet' v val body -> "(let' " ++ v ++ " = " ++ cpprint val ++ " in " ++ cpprint body ++ ")"
