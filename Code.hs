@@ -13,6 +13,7 @@ data Code
     | CLambda String Code
     | CLambda' String Code -- Lambda with only one occurence of the variable in the body
     | CMatch Code [([String], Code)]
+    | CMatchN Code [(Either String Int, Code)]
     | CCall Code Code
     deriving (Show)
 
@@ -27,6 +28,16 @@ cpprint code =
         CLet' v val body -> "(let' " ++ v ++ " = " ++ cpprint val ++ " in " ++ cpprint body ++ ")"
         CLambda v body -> "(\\" ++ v ++ ". " ++ cpprint body ++ ")"
         CLambda' v body -> "(\\'" ++ v ++ ". " ++ cpprint body ++ ")"
+        CMatchN x branches ->
+            let ppbranches =
+                    concatMap
+                        (\(pat, branch) ->
+                            let pppat = case pat of
+                                    Left v -> v
+                                    Right n -> show n
+                            in pppat ++ " -> " ++ cpprint branch ++ "; ")
+                        branches
+            in "match (" ++ cpprint x ++ ") {" ++ ppbranches ++ "}"
         CMatch x branches ->
             let ppbranches =
                     concatMap

@@ -141,6 +141,28 @@ unthunk mem vars code =
                     a:_ -> a
                     [] -> error "No patterns matching"
             in unthunk mem' (bound ++ vars) branch
+        CMatchN x branches ->
+            let (mem', x') = uncurry weak $ unthunk mem vars x
+                bindTo pat =
+                    case x' of
+                        VNum n ->
+                            case pat of
+                                Left v -> Just [(v, x')]
+                                Right n' ->
+                                    if n == n'
+                                        then Just []
+                                        else Nothing
+                        _ -> Nothing -- TODO: Optimize if x is not a number
+                matches = mapMaybe
+                    (\(pat, branch) ->
+                        case bindTo pat of
+                            Just bound -> Just (bound, branch)
+                            Nothing -> Nothing
+                    ) branches
+                (bound, branch) = case matches of
+                    a:_ -> a
+                    [] -> error "No patterns matching"
+            in unthunk mem' (bound ++ vars) branch
         CCall x y    -> (mem, VCall (VThunk vars x) (VThunk vars y))
 
 weak :: Memory -> Value -> (Memory, Value)

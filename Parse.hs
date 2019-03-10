@@ -57,6 +57,7 @@ parseAst =
         [ parseCall
         , parseLet
         , parseMatch
+        , parseMatchN
         , parseLambda
         , parseVar
         , parseNum
@@ -126,6 +127,29 @@ parseMatch = do
             branch <- parseAst
 
             return (constructor:pat, branch)
+
+parseMatchN :: Parser HParseError Ast
+parseMatchN = do
+
+    token $ matchText "match"
+    x <- parseAst
+
+    token $ matchText "{"
+
+    binds <- separated parsePat $ token $ matchChar ';'
+
+    matchChar ';' <|> pure ' '
+
+    token $ matchText "}"
+    return $ Ast $ AMatchN x binds
+
+    where
+        parsePat = do
+            num <- token ((Left <$> matchVName) <|> (Right <$> matchInt))
+            token $ matchText "->"
+            branch <- parseAst
+
+            return (num, branch)
 
 parseLambda :: Parser HParseError Ast
 parseLambda = do

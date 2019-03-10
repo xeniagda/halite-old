@@ -15,6 +15,7 @@ data AstPart
     | ALet [(String, Ast)] Ast
     | ALambda [String] Ast
     | AMatch Ast [([String], Ast)]
+    | AMatchN Ast [(Either String Int, Ast)]
     | ACall [Ast]
     deriving (Show)
 
@@ -35,6 +36,8 @@ astToCode (Ast part) =
                 ALambda (v:rest) body -> CLambda v $ astCompToCode $ ALambda rest body
                 AMatch x branches ->
                     CMatch (astToCode x) $ map (\(pat, branch) -> (pat, astToCode branch)) branches
+                AMatchN x branches ->
+                    CMatchN (astToCode x) $ map (\(pat, branch) -> (pat, astToCode branch)) branches
                 ACall lst -> foldl1' CCall $ map astToCode lst
 
 indentOf :: Int -> String
@@ -66,6 +69,19 @@ apprint i (Ast part) =
                         ppbranches =
                             map (\(p, b) ->
                                 intercalate " " p ++ " ->\n"
+                                ++ indentOf (i+2) ++ apprint (i+2) b ++ ";"
+                            )
+                            branches
+                        ppbranches' = intercalate sep ppbranches
+
+                    in "match (" ++ apprint (i+1) x ++
+                        ") {" ++ sep ++ ppbranches' ++ "\n" ++ indent ++ "}"
+
+                AMatchN x branches ->
+                    let sep = "\n" ++ indentOf (i + 1)
+                        ppbranches =
+                            map (\(p, b) ->
+                                show p ++ " ->\n"
                                 ++ indentOf (i+2) ++ apprint (i+2) b ++ ";"
                             )
                             branches
