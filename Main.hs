@@ -14,17 +14,18 @@ run :: Ast -> IO (UTCTime, UTCTime)
 run ast = do
 
     let code = astToCode ast
+        code' = optimizeStricts code
 
     parseDone <- getCurrentTime
 
-    let v = intoExpr code
+    let v = intoExpr code'
         (mem, weaked) = weak [] v
         (mem', evaled) = eval mem weaked
 
     runDone <- evaled `seq` mem' `seq` getCurrentTime
 
     putStrLn $ "Evaluating:\n" ++ apprint 0 ast
-    putStrLn $ "Desugared: " ++ cpprint code
+    putStrLn $ "Desugared: " ++ cpprint code'
 
     mapM_ (\(i, v) -> putStrLn $ (show i ++ ": " ++ vpprint v)) $ zip [0..] mem
     putStrLn $ "Weak: " ++ vpprint weaked

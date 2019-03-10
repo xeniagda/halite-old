@@ -36,12 +36,25 @@ passVar vName vVal mem visited value =
                     let (mem', x') = passVar vName vVal mem visited x
                         (mem'', c') = passVar vName vVal mem' visited c
                     in (mem'', VLet y x' c')
+        VLet' y x c ->
+            if y == vName
+                then (mem, value)
+                else
+                    let (mem', x') = passVar vName vVal mem visited x
+                        (mem'', c') = passVar vName vVal mem' visited c
+                    in (mem'', VLet' y x' c')
         VLambda y body ->
             if y == vName
                 then (mem, value)
                 else
                     let (mem', body') = passVar vName vVal mem visited body
                     in (mem', VLambda y body')
+        VLambda' y body ->
+            if y == vName
+                then (mem, value)
+                else
+                    let (mem', body') = passVar vName vVal mem visited body
+                    in (mem', VLambda' y body')
         VCall f x ->
             let (mem', f') = passVar vName vVal mem visited f
                 (mem'', x') = passVar vName vVal mem' visited x
@@ -68,12 +81,18 @@ weak mem val =
                 mem2 = update mem1' ref val'
                 (mem2', body') = passVar var val' mem2 [] body
             in weak mem2' body'
+        VLet' var val body ->
+            let (mem', body') = passVar var val mem [] body
+            in weak mem' body'
         VCall f arg ->
             case weak mem f of
                 (mem', VLambda var body) ->
                     let (mem2, ref) = alloc mem' arg
                         (mem2', body') = passVar var (VRef ref) mem2 [] body
                     in weak mem2' body'
+                (mem1', VLambda' var body) ->
+                    let (mem2, body') = passVar var arg mem1' [] body
+                    in weak mem2 body'
                 (mem', a) -> (mem', VCall a arg)
         VRef i ->
             case getMem mem i of
@@ -95,12 +114,18 @@ eval mem val =
                 mem2 = update mem1' ref val'
                 (mem2', body') = passVar var val' mem2 [] body
             in eval mem2' body'
+        VLet' var val body ->
+            let (mem', body') = passVar var val mem [] body
+            in eval mem' body'
         VCall f arg ->
             case eval mem f of
                 (mem1', VLambda var body) ->
                     let (mem2, ref) = alloc mem1' arg
                         (mem2', body') = passVar var (VRef ref) mem2 [] body
                     in eval mem2' body'
+                (mem1', VLambda' var body) ->
+                    let (mem2, body') = passVar var arg mem1' [] body
+                    in eval mem2 body'
                 (mem1', f') ->
                     let (mem1, arg') = eval mem arg
                     in (mem1', VCall f' arg')
