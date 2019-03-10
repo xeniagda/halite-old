@@ -14,13 +14,14 @@ import Parse
 
 run :: Ast -> IO (UTCTime, UTCTime)
 run ast = do
+    putStrLn $ "Evaluating:\n" ++ apprint 0 ast
 
     let code = astToCode ast
         code' = optimizeStricts code
 
     parseDone <- code' `seq` getCurrentTime
 
-    let v = VThunk [] code
+    let v = VThunk [] code'
         (mem, weaked) = weak [] v
         (mem', evaled) = eval mem v
 
