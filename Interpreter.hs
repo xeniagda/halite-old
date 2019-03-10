@@ -109,7 +109,7 @@ unthunk mem vars code =
         CLambda x y  -> (mem, VLambda x vars y)
         CLambda' x y -> (mem, VLambda x vars y) -- TODO: Add VLambda'
         CMatch x branches ->
-            let (mem', x') = uncurry weak $ unthunk mem vars x
+            let (mem', x') = uncurry eval $ unthunk mem vars x
                 bindTo pat =
                     if pat == ["_"]
                         then Just []
@@ -142,7 +142,7 @@ unthunk mem vars code =
                     [] -> error "No patterns matching"
             in unthunk mem' (bound ++ vars) branch
         CMatchN x branches ->
-            let (mem', x') = uncurry weak $ unthunk mem vars x
+            let (mem', x') = uncurry eval $ unthunk mem vars x -- Todo: Maybe don't use eval?
                 bindTo pat =
                     case x' of
                         VNum n ->
