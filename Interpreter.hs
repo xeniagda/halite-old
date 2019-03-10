@@ -81,8 +81,9 @@ unthunk mem vars code =
             in unthunk mem2 ((var,(VRef ref)):vars) cbody
 
         CLet' var cval cbody ->
-            let val = VThunk vars cval
-            in unthunk mem ((var,val):vars) cbody
+            let (mem1, val) = unthunk mem vars cval
+                (mem1', ref) = alloc mem1 val
+            in unthunk mem1' ((var,(VRef ref)):vars) cbody
 
         CLambda x y  -> (mem, VLambda x vars y)
         CLambda' x y -> (mem, VLambda x vars y) -- TODO: Add VLambda'
