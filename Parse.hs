@@ -121,7 +121,7 @@ parseMatch = do
 
     where
         parsePat = do
-            constructor <- matchCName
+            constructor <- token $ matchCName
             pat <- many $ token matchVName
             token $ matchText "->"
             branch <- parseAst
