@@ -174,9 +174,10 @@ weak mem val =
                 (mem', VLambda var vars code) ->
                     uncurry weak $ unthunk mem ((var,arg):vars) code
                 (mem', f'@(VBuiltin _ bf)) ->
-                    case bf arg of
-                        Just x -> (mem', x)
-                        Nothing -> (mem', VCall f' arg)
+                    let (mem1', arg') = weak mem' arg
+                    in case bf arg' of
+                        Just x -> weak mem1' x
+                        Nothing -> (mem1', VCall f' arg')
                 (mem', f') -> (mem', VCall f' arg)
         VRef i ->
             case getMem mem i of
@@ -195,10 +196,10 @@ eval mem val =
             case eval mem f of
                 (mem1, VLambda var vars code) ->
                     uncurry eval $ unthunk mem1 ((var,arg):vars) code
-                (mem', f'@(VBuiltin _ f)) ->
+                (mem', f'@(VBuiltin _ bf)) ->
                     let (mem1', arg') = eval mem arg
-                    in case f arg' of
-                        Just x -> (mem1', x)
+                    in case bf arg' of
+                        Just x -> eval mem1' x
                         Nothing -> (mem1', VCall f' arg')
                 (mem1, f') ->
                     let (mem1', arg') = eval mem arg
