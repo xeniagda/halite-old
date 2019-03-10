@@ -1,97 +1,28 @@
-let numbers =
-        \b. b N0 (
-        \b. b N1 (
-        \b. b N2 (
-        \b. b N3 (
-        \b. b N4 (
-        \b. b N5 (
-        \b. b N6 (
-        \b. b N7 (
-        \b. b N8 (
-        \b. b N9 (
-        \b. b N10 (
-        \b. b N11 (
-        \b. b N12 (
-        \b. b N13 (
-        \b. b N14 (
-        \b. b N15 (
-        \b. b N16 (
-        \b. b N17 (
-        \b. b N18 (
-        \b. b N19 (
-        \b. b N20 (
-        \b. b N21 (
-        \b. b N22 (
-        \b. b N23 (
-        \b. b N24 (
-        \b. b N25 (
-        \b. b N26 (
-        \b. b N27 (
-        \b. b N28 (
-        \b. b N29 (
-        \b. b N30 (
-        \b. b N31 (
-        \b. b N32 (
-        \b. b N33 !
-        )))))))))))))))))))))))))))))))));
+let zipWith = \f la lb.
+            match la {
+                Empty -> Empty;
+                Cons a b ->
+                    match lb {
+                        Empty -> Empty;
+                        Cons c d -> Cons (f a c) (zipWith f b d);
+                    };
+            };
 
-    succ = \n f x. f (n f x);
-
-    n0 = \f x. x;
-    n1 = succ n0;
-    n2 = succ n1;
-    n3 = succ n2;
-    n4 = succ n3;
-    n5 = succ n4;
-    n6 = succ n5;
-    n7 = succ n6;
-    n8 = succ n7;
-    n9 = succ n8;
-
-    true = \a b. a;
-    false = \a b. b;
-
-    lst =
-        Cons n3 (
-        Cons n1 (
-        Cons n4 (
-        Cons n1 (
-        Cons n5 (
-        Cons n9 (
-        Cons n2 Empty
-        ))))));
-
-    evalN = \n. (n (\l. l false) numbers) true;
-
-    evalLst =
-        \lst. match lst {
-            Cons a b -> Cons (evalN a) (evalLst b);
-            Empty -> Empty;
-        };
-
-    last =
-        \lst. match lst {
-            Cons a b ->
-                match b {
-                    Empty -> a;
-                    Cons c d -> last b;
-                };
+    tail = \lst.
+        match lst {
+            Cons a b -> b;
             Empty -> !;
         };
 
-    butLast =
-        \lst. match lst {
-            Cons a b ->
-                match b {
-                    Empty -> Empty;
-                    Cons c d -> Cons a (butLast b)
+    fibs = Cons 0 (Cons 1 (zipWith add fibs (tail fibs)));
+
+    take = \n lst.
+        match n {
+            0 -> Empty;
+            _ ->
+                match lst {
+                    Cons a b -> Cons a (take (sub n 1) b);
                 };
-            Empty -> Empty;
         };
 
-    reverse =
-        \lst. match lst {
-            Cons _ _ -> Cons (last lst) (reverse (butLast lst));
-            Empty -> Empty;
-        };
-in evalLst (reverse lst)
+in take 10 fibs
