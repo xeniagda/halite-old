@@ -41,46 +41,6 @@ update :: Memory -> Int -> Value -> Memory
 update mem at val =
     (take at mem) ++ [val] ++ (drop (at + 1) mem)
 
--- passVar :: String -> Value -> Memory -> [Int] -> Value -> (Memory, Value)
--- passVar vName vVal mem visited value =
---     case value of
---         VThunk vars x -> (mem, VThunk ((vName,vVal):vars) x)
---         VVar y ->
---             if y == vName
---                 then (mem, vVal)
---                 else (mem, value)
---         VLambda y body ->
---             if y == vName
---                 then (mem, value)
---                 else
---                     let (mem', body') = passVar vName vVal mem visited body
---                     in (mem', VLambda y body')
---         VLambda' y body ->
---             if y == vName
---                 then (mem, value)
---                 else
---                     let (mem', body') = passVar vName vVal mem visited body
---                     in (mem', VLambda' y body')
---         VCall f x ->
---             let (mem', f') = passVar vName vVal mem visited f
---                 (mem'', x') = passVar vName vVal mem' visited x
---             in (mem'', VCall f' x')
---         VRef i ->
---             if i `elem` visited
---                 then (mem, VRef i)
---                 else case getMem mem i of
---                     Just x ->
---                         let (mem', passed) = passVar vName vVal mem (i: visited) x
---                             mem'' = update mem' i passed
---                         in (mem'', passed)
---                     Nothing -> (mem, value)
---         a -> (mem, a)
-
--- passVars :: Memory -> [(String, Value)] -> Value -> (Memory, Value)
--- passVars vars val =
---     foldl'
---         (\(mem1, curr) (var,val) -> passVar var val mem1 [] curr)
---         (mem', unthunked) vars
 
 unthunk :: Memory -> [(String, Value)] -> Code -> (Memory, Value)
 unthunk mem vars code =
