@@ -1,0 +1,28 @@
+let filter = \f lst.
+        match lst {
+            Cons a b ->
+                match f a {
+                    True -> Cons a (filter f b);
+                    False -> filter f b;
+                };
+            Empty -> Empty;
+        };
+
+    isEven = \n.
+        match mod n 2 {
+            0 -> True;
+            1 -> False;
+        };
+
+    numbersAfter = \n. Cons n (numbersAfter (add n 1));
+    nats = numbersAfter 1;
+
+    take = \n lst.
+        match n {
+            0 -> Empty;
+            _ -> match lst {
+                Cons a b -> Cons a (take (sub n 1) b);
+            }
+        };
+
+in take 30 (filter isEven nats)
