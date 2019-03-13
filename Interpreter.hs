@@ -7,7 +7,7 @@ import System.IO.Unsafe
 import Code
 import Value
 
-numBuiltin :: String -> (Int -> Int -> Int) -> Value
+numBuiltin :: String -> (Int -> Int -> Value) -> Value
 numBuiltin name f =
     VBuiltin name $ \v1 ->
         case v1 of
@@ -15,15 +15,21 @@ numBuiltin name f =
                 Just $
                     VBuiltin (name ++ show x)
                         $ \v2 -> case v2 of
-                            VNum y -> Just $ VNum $ f x y
+                            VNum y -> Just $ f x y
                             _ -> Nothing
             _ -> Nothing
 
+
 builtins :: [(String, Value)]
 builtins =
-    [ ("add", numBuiltin "add" (+))
-    , ("sub", numBuiltin "sub" (-))
-    , ("mul", numBuiltin "mul" (*))
+    [ ("add", numBuiltin "add" (\x y -> VNum $ x + y))
+    , ("sub", numBuiltin "sub" (\x y -> VNum $ x - y))
+    , ("mul", numBuiltin "mul" (\x y -> VNum $ x * y))
+    , ("mod", numBuiltin "mod" (\x y -> VNum $ mod x y))
+    , ("eq", numBuiltin "eq" (\x y -> if x == y then VConstructor "True" else VConstructor "False"))
+    , ("neq", numBuiltin "neq" (\x y -> if x /= y then VConstructor "True" else VConstructor "False"))
+    , ("lt", numBuiltin "lt" (\x y -> if x < y then VConstructor "True" else VConstructor "False"))
+    , ("gt", numBuiltin "gt" (\x y -> if x > y then VConstructor "True" else VConstructor "False"))
     ]
 
 type Memory = [Value]
