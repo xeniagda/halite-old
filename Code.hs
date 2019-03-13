@@ -8,10 +8,11 @@ data Code
     | CNum Int
     | CConstructor String
     | CLet String Code Code
-    | CLet' String Code Code
+    -- | CLet' String Code Code
     -- ^ Strict let statement with no recurion. Does not allocate
     | CLambda String Code
-    | CLambda' String Code -- Lambda with only one occurence of the variable in the body
+    -- | CLambda' String Code
+    -- ^ Lambda with only one occurence of the variable in the body
     | CMatch Code [([String], Code)]
     | CMatchN Code [(Either String Int, Code)]
     | CCall Code Code
@@ -25,9 +26,7 @@ cpprint code =
         CNum x -> show x
         CConstructor x -> x
         CLet v val body -> "(let " ++ v ++ " = " ++ cpprint val ++ " in " ++ cpprint body ++ ")"
-        CLet' v val body -> "(let' " ++ v ++ " = " ++ cpprint val ++ " in " ++ cpprint body ++ ")"
         CLambda v body -> "(\\" ++ v ++ ". " ++ cpprint body ++ ")"
-        CLambda' v body -> "(\\'" ++ v ++ ". " ++ cpprint body ++ ")"
         CMatchN x branches ->
             let ppbranches =
                     concatMap
@@ -57,15 +56,7 @@ countVar var code =
                     if v == var
                         then 0
                         else go val + go body
-                CLet' v val body ->
-                    if v == var
-                        then 0
-                        else go val + go body
                 CLambda v body ->
-                    if v == var
-                        then 0
-                        else go body
-                CLambda' v body ->
                     if v == var
                         then 0
                         else go body
@@ -79,20 +70,20 @@ countVar var code =
                 _ -> 0
 
 optimizeStricts :: Code -> Code
-optimizeStricts code =
-    case code of
-        CLet v val body ->
-            if countVar v val == 0 && countVar v body < 2
-                then CLet' v (optimizeStricts val) (optimizeStricts body)
-                else CLet v (optimizeStricts val) (optimizeStricts body)
-        CLet' v val body -> CLet' v (optimizeStricts val) (optimizeStricts body)
-        CLambda v body ->
-            if countVar v body < 2
-                then CLambda' v (optimizeStricts body)
-                else CLambda v (optimizeStricts body)
-        CLambda' v body -> CLambda' v (optimizeStricts body)
-        CCall a b -> CCall (optimizeStricts a) (optimizeStricts b)
-        _ -> code
+optimizeStricts code = code
+    -- case code of
+    --     CLet v val body ->
+    --         if countVar v val == 0 && countVar v body < 2
+    --             then CLet' v (optimizeStricts val) (optimizeStricts body)
+    --             else CLet v (optimizeStricts val) (optimizeStricts body)
+    --     CLet' v val body -> CLet' v (optimizeStricts val) (optimizeStricts body)
+    --     CLambda v body ->
+    --         if countVar v body < 2
+    --             then CLambda' v (optimizeStricts body)
+    --             else CLambda v (optimizeStricts body)
+    --     CLambda' v body -> CLambda' v (optimizeStricts body)
+    --     CCall a b -> CCall (optimizeStricts a) (optimizeStricts b)
+    --     _ -> code
 
 letm :: [(String, Code)] -> Code -> Code
 letm [] x = x

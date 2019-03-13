@@ -22,19 +22,22 @@ run ast = do
     parseDone <- code' `seq` getCurrentTime
 
     let v = VThunk [] code'
-        (mem, weaked) = weak [] v
-        (mem', evaled) = eval mem v
+        initMem = [v]
+        memw = weak initMem 0
+        weaked = getMem memw 0
+        meme = eval memw 0
+        evaled = getMem meme 0
 
-    runDone <- evaled `seq` mem' `seq` getCurrentTime
+    runDone <- evaled `seq` meme `seq` getCurrentTime
 
     putStrLn $ "Evaluating:\n" ++ apprint 0 ast
     putStrLn $ "Desugared: " ++ cpprint code'
 
-    -- mapM_ (\(i, v) -> putStrLn $ (show i ++ ": " ++ vpprint v)) $ zip [0..] mem
+    mapM_ (\(i, v) -> putStrLn $ (show i ++ ": " ++ vpprint v)) $ zip [0..] memw
     putStrLn $ "Weak: " ++ vpprint weaked
 
-    -- putStrLn "Evaled memory: "
-    -- mapM_ (\(i, v) -> putStrLn $ (show i ++ ": " ++ vpprint v)) $ zip [0..] mem
+    putStrLn "Evaled memory: "
+    mapM_ (\(i, v) -> putStrLn $ (show i ++ ": " ++ vpprint v)) $ zip [0..] meme
     putStrLn $ "Evaled: " ++ vpprint evaled
 
     return (parseDone, runDone)

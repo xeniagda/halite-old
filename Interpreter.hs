@@ -31,144 +31,83 @@ type Memory = [Value]
 alloc :: Memory -> Value -> (Memory, Int)
 alloc mem val = (mem ++ [val], length mem)
 
-getMem :: Memory -> Int -> Maybe Value
+getMem :: Memory -> Int -> Value
 getMem mem at =
-    if at < length mem
-        then Just $ mem !! at
-        else Nothing
+    mem !! at
 
 update :: Memory -> Int -> Value -> Memory
 update mem at val =
     (take at mem) ++ [val] ++ (drop (at + 1) mem)
 
 
-unthunk :: Memory -> [(String, Value)] -> Code -> (Memory, Value)
+unthunk :: Memory -> [(String, Int)] -> Code -> (Memory, Int)
 unthunk mem vars code =
     case code of
         CBottom -> (mem, error "Bottom unthunked")
         CVar x ->
             case lookup x builtins of
-                Just builtin -> (mem, builtin)
+                Just builtin -> alloc mem builtin
                 Nothing ->
                     case lookup x vars of
-                        Just val -> (mem, val)
+                        Just addr -> (mem, addr)
                         Nothing -> error $ "Undefined variable " ++ x
-        CNum x -> (mem, VNum x)
-        CConstructor x -> (mem, VConstructor x)
+        CNum x -> alloc mem $ VNum x
+        CConstructor x -> alloc mem $ VConstructor x
         CLet var cval cbody ->
-            let (mem1, ref) = alloc mem (error "dummy")
-                (mem1', val') = unthunk mem1 ((var,(VRef ref)):vars) cval
-                mem2 = update mem1' ref val'
-            in unthunk mem2 ((var,(VRef ref)):vars) cbody
+            let (mem1, addr) = alloc mem (error "dummy")
+                (mem1', addr2) = unthunk mem1 ((var,addr):vars) cval
+                mem2 = update mem1' addr (getMem mem1' addr2)
+            in unthunk mem2 ((var,addr):vars) cbody
+        CLambda x y  -> alloc mem $ VLambda x vars y
+        CCall f x    ->
+            let (memf, f') = unthunk mem vars f
+                (memx, x') = unthunk memf vars x
+            in alloc memx $ VCall f' x'
 
-        CLet' var cval cbody ->
-            let (mem1, val) = unthunk mem vars cval
-                (mem1', ref) = alloc mem1 val
-            in unthunk mem1' ((var,(VRef ref)):vars) cbody
-
-        CLambda x y  -> (mem, VLambda x vars y)
-        CLambda' x y -> (mem, VLambda x vars y) -- TODO: Add VLambda'
-        CMatch x branches ->
-            let (mem', x') = uncurry weak $ unthunk mem vars x
-                bindTo pat =
-                    if pat == ["_"]
-                        then Just []
-                        else
-                            let res = foldr
-                                    (\tok curr ->
-                                        case curr of
-                                            Just (Just at, bound) ->
-                                                case at of
-                                                    VConstructor x ->
-                                                        if x == tok
-                                                            then Just (Nothing, bound)
-                                                            else Nothing
-                                                    VCall x y ->
-                                                        Just (Just x, (tok,y):bound)
-                                                    _ -> Nothing
-                                            _ -> Nothing
-                                    ) (Just (Just x', [])) pat
-                        in case res of
-                            Just (Nothing, bound) -> Just bound
-                            _ -> Nothing
-                matches = mapMaybe
-                    (\(pat, branch) ->
-                        case bindTo pat of
-                            Just bound -> Just (bound, branch)
-                            Nothing -> Nothing
-                    ) branches
-                (bound, branch) = case matches of
-                    a:_ -> a
-                    [] -> error "No patterns matching"
-            in unthunk mem' (bound ++ vars) branch
-        CMatchN x branches ->
-            let (mem', x') = uncurry weak $ unthunk mem vars x
-                bindTo pat =
-                    case x' of
-                        VNum n ->
-                            case pat of
-                                Left v -> Just [(v, x')]
-                                Right n' ->
-                                    if n == n'
-                                        then Just []
-                                        else Nothing
-                        _ -> Nothing -- TODO: Optimize if x is not a number
-                matches = mapMaybe
-                    (\(pat, branch) ->
-                        case bindTo pat of
-                            Just bound -> Just (bound, branch)
-                            Nothing -> Nothing
-                    ) branches
-                (bound, branch) = case matches of
-                    a:_ -> a
-                    [] -> error "No patterns matching"
-            in unthunk mem' (bound ++ vars) branch
-        CCall x y    -> (mem, VCall (VThunk vars x) (VThunk vars y))
-
-weak :: Memory -> Value -> (Memory, Value)
-weak mem val =
-    case val of
-        VThunk vars code -> uncurry weak $ unthunk mem vars code
+-- Weaks the memory stored in addr
+weak :: Memory -> Int -> Memory
+weak mem addr =
+    case getMem mem addr of
+        VThunk vars code ->
+            let (mem', addr') = unthunk mem vars code
+                mem'' = update mem' addr (getMem mem' addr')
+            in weak mem'' addr
         VCall f arg ->
-            case weak mem f of
-                (mem', VLambda var vars code) ->
-                    uncurry weak $ unthunk mem ((var,arg):vars) code
-                (mem', f'@(VBuiltin _ bf)) ->
-                    let (mem1', arg') = weak mem' arg
-                    in case bf arg' of
-                        Just x -> weak mem1' x
-                        Nothing -> (mem1', VCall f' arg')
-                (mem', f') -> (mem', VCall f' arg)
-        VRef i ->
-            case getMem mem i of
-                Just x ->
-                    let (mem', weaked) = weak mem x
-                        mem'' = update mem' i weaked
-                    in (mem'', weaked)
-                Nothing -> (mem, val)
-        a -> (mem, a)
+            let memf = weak mem f
+            in case getMem memf f of
+                VLambda var vars code ->
+                    let (mem1, resaddr) = unthunk mem ((var,arg):vars) code
+                    in weak mem1 resaddr
+                VBuiltin _ bf ->
+                    let mema = eval memf arg
+                        varg = getMem mema arg
+                    in case bf varg of
+                        Just x -> update mem addr x
+                        Nothing -> mema
+                _ -> memf
+        a -> mem
 
-eval :: Memory -> Value -> (Memory, Value)
-eval mem val =
-    case val of
-        VThunk vars code -> uncurry eval $ unthunk mem vars code
+
+eval :: Memory -> Int -> Memory
+eval mem addr =
+    case getMem mem addr of
+        VThunk vars code ->
+            let (mem', addr') = unthunk mem vars code
+                mem'' = update mem' addr (getMem mem' addr')
+            in eval mem'' addr
         VCall f arg ->
-            case eval mem f of
-                (mem1, VLambda var vars code) ->
-                    uncurry eval $ unthunk mem1 ((var,arg):vars) code
-                (mem', f'@(VBuiltin _ bf)) ->
-                    let (mem1', arg') = eval mem arg
-                    in case bf arg' of
-                        Just x -> eval mem1' x
-                        Nothing -> (mem1', VCall f' arg')
-                (mem1, f') ->
-                    let (mem1', arg') = eval mem arg
-                    in (mem1', VCall f' arg')
-        VRef i ->
-            case getMem mem i of
-                Just x ->
-                    let (mem', evaled) = eval mem x
-                        mem'' = update mem' i evaled
-                    in (mem'', evaled)
-                Nothing -> (mem, val)
-        a -> (mem, a)
+            let memf = eval mem f
+            in case getMem memf f of
+                VLambda var vars code ->
+                    let (mem1, resaddr) = unthunk mem ((var,arg):vars) code
+                    in eval mem1 resaddr
+                VBuiltin _ bf ->
+                    let mema = eval memf arg
+                        varg = getMem mema arg
+                    in case bf varg of
+                        Just x -> update mem addr x
+                        Nothing -> mema
+                _ ->
+                    let mema = eval memf arg
+                    in mema
+        a -> mem
