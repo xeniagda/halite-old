@@ -16,7 +16,7 @@ let filter = \f lst.
             }
         };
 
-    numbersAfter = \n. Cons n (numbersAfter (add n 1));
+    oddNumbersAfter = \n. Cons n (oddNumbersAfter (add n 2));
 
     filterPrime = \lst.
         match lst {
@@ -25,6 +25,6 @@ let filter = \f lst.
                 in Cons prime (filterPrime nondivisible)
         };
 
-    primes = filterPrime (numbersAfter 2);
+    primes = Cons 2 (filterPrime (oddNumbersAfter 3));
 
 in take 20 primes
