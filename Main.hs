@@ -45,7 +45,7 @@ run ast = do
 
 showErr i (line:rest) (err, idx) =
     if idx > T.length line
-        then showErr (i + 1) rest (err, idx - T.length line)
+        then showErr (i + 1) rest (err, idx - T.length line - 1)
         else do
             let lineNr = show (i+1) ++ " | "
                 indent = take (idx + length lineNr) $ cycle " "
