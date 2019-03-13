@@ -47,7 +47,7 @@ showErr i (line:rest) (err, idx) =
     if idx > T.length line
         then showErr (i + 1) rest (err, idx - T.length line)
         else do
-            let lineNr = show i ++ " | "
+            let lineNr = show (i+1) ++ " | "
                 indent = take (idx + length lineNr) $ cycle " "
             putStrLn $ lineNr ++ T.unpack line
             putStrLn $ indent ++ "^ " ++ show err
