@@ -58,6 +58,53 @@ unthunk mem vars code =
                 (mem1', addr2) = unthunk mem1 ((var,addr):vars) cval
                 mem2 = update mem1' addr (getMem mem1' addr2)
             in unthunk mem2 ((var,addr):vars) cbody
+        CMatch c branches ->
+            let (mem', addr) = unthunk mem vars c
+                mem1 = weak mem' addr
+                bindBranch (labels, code) =
+                    if labels == ["_"]
+                        then Just (code, [])
+                        else
+                            let init = Just (addr, [])
+                                step = \label curr ->
+                                    case curr of
+                                        Nothing -> Nothing
+                                        Just (ref, binds) ->
+                                            case getMem mem1 ref of
+                                                VCall f x ->
+                                                    Just (f, (label,x):binds)
+                                                _ -> Nothing
+                            in case foldr step init (tail labels) of
+                                Just (const, binds) ->
+                                    case getMem mem1 const of
+                                        VConstructor x | x == head labels ->
+                                            Just (code, binds)
+                                        _ -> Nothing
+                                Nothing -> Nothing
+                binds = mapMaybe bindBranch branches
+            in case binds of
+                [] -> error "No match pattern!"
+                (code, binds):_ -> unthunk mem1 (binds++vars) code
+
+        CMatchN c branches ->
+            let (mem', addr) = unthunk mem vars c
+                mem1 = weak mem' addr
+                val = getMem mem1 addr
+                bindBranch (number, code) =
+                    case number of
+                        Nothing -> Just code
+                        Just n ->
+                            case val of
+                                VNum x | x == n -> Just code
+                                _ -> Nothing
+
+                binds = mapMaybe bindBranch branches
+            in case binds of
+                [] -> error "No match pattern!"
+                code:_ -> unthunk mem1 vars code
+
+
+
         CLambda x y  -> alloc mem $ VLambda x vars y
         CCall f x    ->
             let (memf, f') = unthunk mem vars f
@@ -77,7 +124,8 @@ weak mem addr =
             in case getMem memf f of
                 VLambda var vars code ->
                     let (mem1, resaddr) = unthunk mem ((var,arg):vars) code
-                    in weak mem1 resaddr
+                        mem1' = update mem1 addr (getMem mem1 resaddr)
+                    in weak mem1' addr
                 VBuiltin _ bf ->
                     let mema = eval memf arg
                         varg = getMem mema arg
@@ -100,7 +148,8 @@ eval mem addr =
             in case getMem memf f of
                 VLambda var vars code ->
                     let (mem1, resaddr) = unthunk mem ((var,arg):vars) code
-                    in eval mem1 resaddr
+                        mem1' = update mem1 addr (getMem mem1 resaddr)
+                    in eval mem1' addr
                 VBuiltin _ bf ->
                     let mema = eval memf arg
                         varg = getMem mema arg

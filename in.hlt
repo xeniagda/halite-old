@@ -25,4 +25,5 @@ let zipWith = \f la lb.
                 };
         };
 
-in take 10 fibs
+
+in take 50 fibs

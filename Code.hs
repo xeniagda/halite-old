@@ -14,7 +14,7 @@ data Code
     -- | CLambda' String Code
     -- ^ Lambda with only one occurence of the variable in the body
     | CMatch Code [([String], Code)]
-    | CMatchN Code [(Either String Int, Code)]
+    | CMatchN Code [(Maybe Int, Code)]
     | CCall Code Code
     deriving (Show)
 
@@ -32,8 +32,8 @@ cpprint code =
                     concatMap
                         (\(pat, branch) ->
                             let pppat = case pat of
-                                    Left v -> v
-                                    Right n -> show n
+                                    Just n -> show n
+                                    Nothing -> "_"
                             in pppat ++ " -> " ++ cpprint branch ++ "; ")
                         branches
             in "match (" ++ cpprint x ++ ") {" ++ ppbranches ++ "}"

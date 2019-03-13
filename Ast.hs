@@ -15,7 +15,7 @@ data AstPart
     | ALet [(String, Ast)] Ast
     | ALambda [String] Ast
     | AMatch Ast [([String], Ast)]
-    | AMatchN Ast [(Either String Int, Ast)]
+    | AMatchN Ast [(Maybe Int, Ast)]
     | ACall [Ast]
     deriving (Show)
 
@@ -81,8 +81,11 @@ apprint i (Ast part) =
                     let sep = "\n" ++ indentOf (i + 1)
                         ppbranches =
                             map (\(p, b) ->
-                                show p ++ " ->\n"
-                                ++ indentOf (i+2) ++ apprint (i+2) b ++ ";"
+                                let pppat =
+                                        case p of
+                                            Just n -> show n
+                                            Nothing -> "_"
+                                in pppat ++ " ->\n" ++ indentOf (i+2) ++ apprint (i+2) b ++ ";"
                             )
                             branches
                         ppbranches' = intercalate sep ppbranches

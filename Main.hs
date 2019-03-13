@@ -39,6 +39,7 @@ run ast = do
     putStrLn "Evaled memory: "
     mapM_ (\(i, v) -> putStrLn $ (show i ++ ": " ++ vpprint v)) $ zip [0..] meme
     putStrLn $ "Evaled: " ++ vpprint evaled
+    putStrLn $ "Evaled (with mem): " ++ vpprintAddr meme 0
 
     return (parseDone, runDone)
 

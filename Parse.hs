@@ -112,7 +112,7 @@ parseMatch = do
 
     token $ matchText "{"
 
-    binds <- separated parsePat $ token $ matchChar ';'
+    binds <- separated (parsePat <|> parsePatUnderscore) $ token $ matchChar ';'
 
     matchChar ';' <|> pure ' '
 
@@ -120,6 +120,13 @@ parseMatch = do
     return $ Ast $ AMatch x binds
 
     where
+        parsePatUnderscore = do
+            token $ matchChar '_'
+            token $ matchText "->"
+            branch <- parseAst
+
+            return (["_"], branch)
+
         parsePat = do
             constructor <- token $ matchCName
             pat <- many $ token matchVName
@@ -145,7 +152,7 @@ parseMatchN = do
 
     where
         parsePat = do
-            num <- token ((Left <$> matchVName) <|> (Right <$> matchInt))
+            num <- token ((Nothing <$ matchChar '_') <|> (Just <$> matchInt))
             token $ matchText "->"
             branch <- parseAst
 
